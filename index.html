@@ -11,12 +11,12 @@
             margin: 0;
             padding: 0;
             background: #1a1a1a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         #map {
             height: 100vh;
             width: 100%;
         }
-        /* Тёмный стиль попапов */
         .leaflet-popup-content-wrapper {
             background: #2c2c2c;
             color: #f0f0f0;
@@ -28,12 +28,12 @@
         }
         .leaflet-popup-content {
             margin: 10px 14px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         .cam-popup {
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-width: 220px;
         }
         .cam-popup b {
             font-size: 14px;
@@ -54,264 +54,460 @@
             height: 100%;
             border: none;
         }
-        .cam-link {
-            display: inline-block;
+        .cam-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
             margin-top: 6px;
-            padding: 6px 14px;
-            background: #4a90d9;
-            color: white;
+        }
+        .cam-link, .cam-share {
+            padding: 6px 12px;
             border-radius: 6px;
-            text-decoration: none;
             font-size: 13px;
             font-weight: 500;
-            transition: background 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            color: white;
+        }
+        .cam-link {
+            background: #4a90d9;
         }
         .cam-link:hover {
             background: #3570b0;
         }
+        .cam-share {
+            background: #6c757d;
+        }
+        .cam-share:hover {
+            background: #545b62;
+        }
+        .cam-views {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .top-controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+            background: #1e1e1e;
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .top-controls input {
+            width: 200px;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2c2c2c;
+            color: #f0f0f0;
+            font-size: 14px;
+            outline: none;
+        }
+        .top-controls input::placeholder {
+            color: #aaa;
+        }
+        .top-controls select {
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2c2c2c;
+            color: #f0f0f0;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+        .top-controls button {
+            padding: 10px 16px;
+            background: #4a90d9;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .top-controls button:hover {
+            background: #3570b0;
+        }
+        datalist option {
+            background: #2c2c2c;
+            color: #f0f0f0;
+        }
     </style>
 </head>
 <body>
+    <div class="top-controls">
+        <select id="districtFilter">
+            <option value="">Все районы</option>
+            <option value="Центральный">Центральный</option>
+            <option value="Октябрьский">Октябрьский</option>
+            <option value="Железнодорожный">Железнодорожный</option>
+            <option value="Советский">Советский</option>
+            <option value="Кировский">Кировский</option>
+            <option value="Ленинский">Ленинский</option>
+            <option value="Свердловский">Свердловский</option>
+        </select>
+        <input type="text" id="searchInput" list="camerasList" placeholder="🔍 Поиск адреса..." autocomplete="off">
+        <datalist id="camerasList"></datalist>
+        <button id="searchBtn">Найти</button>
+    </div>
     <div id="map"></div>
     <script>
-        // Спутниковая карта
         const map = L.map('map', {
             center: [56.0105, 92.8526],
             zoom: 12,
             zoomControl: true
         });
 
-        // Базовый спутниковый слой Esri
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri, Maxar, Earthstar Geographics, and the GIS User Community',
             maxZoom: 19
         }).addTo(map);
 
-        // Прозрачный слой подписей CartoDB
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 19,
-            opacity: 0.9  // небольшая прозрачность для гармонии
+            opacity: 0.9
         }).addTo(map);
 
-        // Все камеры с координатами и ссылками
         const cameras = [
             // ===== Центральный =====
-            { address: "Ады Лебедевой – Вейнбаума", lat: 56.016203, lon: 92.870553, url: "https://krkvideo7.orionnet.online/cam3751/embed.html?autoplay=false" },
-            { address: "Ады Лебедевой – Диктатуры", lat: 56.015292, lon: 92.858103, url: "https://krkvideo7.orionnet.online/cam1541/embed.html?autoplay=false" },
-            { address: "Ады Лебедевой – Кирова", lat: 56.015649, lon: 92.862986, url: "https://krkvideo7.orionnet.online/cam6411/embed.html?autoplay=false" },
-            { address: "Ады Лебедевой – Перенсона", lat: 56.015824, lon: 92.866061, url: "https://krkvideo7.orionnet.online/cam1565/embed.html?autoplay=false" },
-            { address: "Бограда – Декабристов", lat: 56.006696, lon: 92.847012, url: "https://krkvideo2.orionnet.online/cam1971/embed.html?autoplay=false" },
-            { address: "Бограда – Робеспьера", lat: 56.006431, lon: 92.842220, url: "https://krkvideo2.orionnet.online/cam12108/embed.html?autoplay=false" },
-            { address: "Брянская – Вейнбаума", lat: 56.020748, lon: 92.868669, url: "https://fluserver.orionnet.online/cam1080/embed.html?autoplay=false" },
-            { address: "Дубровинского – Декабристов", lat: 56.004549, lon: 92.849107, url: "https://krkvideo7.orionnet.online/cam522/embed.html?autoplay=false" },
-            { address: "Дубровинского – Карла Маркса – Каратанова", lat: 56.011511, lon: 92.891585, url: "https://fluserver.orionnet.online/cam3584/embed.html?autoplay=false" },
-            { address: "Дубровинского – Парижской коммуны", lat: 56.008381, lon: 92.881759, url: "https://krkvideo7.orionnet.online/cam1549/embed.html?autoplay=false" },
-            { address: "Дубровинского – Сурикова", lat: 56.007635, lon: 92.877197, url: "https://fluserver.orionnet.online/cam1984/embed.html?autoplay=false" },
-            { address: "Дубровинского 106", lat: 56.007126, lon: 92.861995, url: "https://fluserver.orionnet.online/cam7799/embed.html?autoplay=false" },
-            { address: "Дубровинского 54а (первая камера)", lat: 56.009381, lon: 92.886429, url: "https://krkvideo7.orionnet.online/cam3752/embed.html?autoplay=false" },
-            { address: "Дубровинского 54а (вторая камера)", lat: 56.009381, lon: 92.886429, url: "https://krkvideo7.orionnet.online/cam3753/embed.html?autoplay=false" },
-            { address: "Караульная – Любы Шевцовой", lat: 56.041683, lon: 92.863299, url: "https://fluserver.orionnet.online/cam6504/embed.html?autoplay=false" },
-            { address: "Карла Маркса – 9 Января", lat: 56.011269, lon: 92.886242, url: "https://fluserver.orionnet.online/cam1983/embed.html?autoplay=false" },
-            { address: "Карла Маркса – Вейнбаума", lat: 56.010541, lon: 92.871547, url: "https://fluserver.orionnet.online/cam3273/embed.html?autoplay=false" },
-            { address: "Карла Маркса – Горького", lat: 56.009384, lon: 92.848959, url: "https://fluserver.orionnet.online/cam1106/embed.html?autoplay=false" },
-            { address: "Карла Маркса – Декабристов", lat: 56.009226, lon: 92.846621, url: "https://fluserver.orionnet.online/cam1479/embed.html?autoplay=false" },
-            { address: "Карла Маркса – Перенсона", lat: 56.010336, lon: 92.867049, url: "https://krkvideo2.orionnet.online/cam8142/embed.html?autoplay=false" },
-            { address: "Карла Маркса – Сурикова", lat: 56.010711, lon: 92.873755, url: "https://krkvideo2.orionnet.online/cam3274/embed.html?autoplay=false" },
-            { address: "Карла Маркса 127", lat: 56.009919, lon: 92.866693, url: "https://krkvideo2.orionnet.online/cam8143/embed.html?autoplay=false" },
-            { address: "Карла Маркса 132", lat: 56.009320, lon: 92.842502, url: "https://krkvideo2.orionnet.online/cam1120/embed.html?autoplay=false" },
-            { address: "Карла Маркса 62", lat: 56.010881, lon: 92.873359, url: "https://krkvideo2.orionnet.online/cam3274/embed.html?autoplay=false" },
-            { address: "Красная площадь – Робеспьера – Карла Маркса", lat: 56.008426, lon: 92.841855, url: "https://krkvideo7.orionnet.online/cam5871/embed.html?autoplay=false" },
-            { address: "Ленина – Вейнбаума", lat: 56.013619, lon: 92.871049, url: "https://fluserver.orionnet.online/cam1469/embed.html?autoplay=false" },
-            { address: "Ленина – Горького", lat: 56.012381, lon: 92.848285, url: "https://fluserver.orionnet.online/cam2646/embed.html?autoplay=false" },
-            { address: "Ленина – Декабристов", lat: 56.012303, lon: 92.846083, url: "https://fluserver.orionnet.online/cam2648/embed.html?autoplay=false" },
-            { address: "Ленина – Дзержинского", lat: 56.012676, lon: 92.856059, url: "https://krkvideo2.orionnet.online/cam8631/embed.html?autoplay=false" },
-            { address: "Ленина – Диктатуры Пролетариата", lat: 56.012910, lon: 92.858503, url: "https://fluserver.orionnet.online/cam3667/embed.html?autoplay=false" },
-            { address: "Ленина – Кирова", lat: 56.013153, lon: 92.863623, url: "https://krkvideo2.orionnet.online/cam7767/embed.html?autoplay=false" },
-            { address: "Ленина – Парижской Коммуны", lat: 56.014262, lon: 92.880895, url: "https://fluserver.orionnet.online/cam2439/embed.html?autoplay=false" },
-            { address: "Ленина 28", lat: 56.014519, lon: 92.883734, url: "https://krkvideo7.orionnet.online/cam8289/embed.html?autoplay=false" },
-            { address: "Ленина 92", lat: 56.013382, lon: 92.862768, url: "https://krkvideo2.orionnet.online/cam7768/embed.html?autoplay=false" },
-            { address: "Линейная – Березина", lat: 56.030802, lon: 92.880274, url: "https://krkvideo7.orionnet.online/cam5235/embed.html?autoplay=false" },
-            { address: "Линейная – Караульная 1", lat: 56.044660, lon: 92.878966, url: "https://fluserver.orionnet.online/cam13934/embed.html?autoplay=false" },
-            { address: "Линейная – Караульная 2", lat: 56.044660, lon: 92.878966, url: "https://fluserver.orionnet.online/cam13933/embed.html?autoplay=false" },
-            { address: "Линейная – Мартынова", lat: 56.038228, lon: 92.879668, url: "https://fluserver.orionnet.online/cam1560/embed.html?autoplay=false" },
-            { address: "Линейная – Мужества", lat: 56.033444, lon: 92.880057, url: "https://fluserver.orionnet.online/cam1559/embed.html?autoplay=false" },
-            { address: "Линейная 99", lat: 56.036025, lon: 92.879135, url: "https://krkvideo2.orionnet.online/cam8146/embed.html?autoplay=false" },
-            { address: "Маркса – П.Коммуны (Ионесси)", lat: 56.010854, lon: 92.879409, url: "https://fluserver.orionnet.online/cam1163/embed.html?autoplay=false" },
-            { address: "Маркса – П.Коммуны (Центр СПИД)", lat: 56.011124, lon: 92.883294, url: "https://fluserver.orionnet.online/cam1164/embed.html?autoplay=false" },
-            { address: "Маркса – Сурикова", lat: 56.012444, lon: 92.876223, url: "https://krkvideo2.orionnet.online/cam6414/embed.html?autoplay=false" },
-            { address: "Мира – 9 января", lat: 56.012933, lon: 92.886003, url: "https://krkvideo2.orionnet.online/cam1105/embed.html?autoplay=false" },
-            { address: "Мира – Горького", lat: 56.010881, lon: 92.848501, url: "https://krkvideo2.orionnet.online/cam1156/embed.html?autoplay=false" },
-            { address: "Мира – Декабристов", lat: 56.010832, lon: 92.846357, url: "https://krkvideo7.orionnet.online/cam1550/embed.html?autoplay=false" },
-            { address: "Мира – Диктатуры Пролетариата", lat: 56.011447, lon: 92.858683, url: "https://krkvideo2.orionnet.online/cam1155/embed.html?autoplay=false" },
-            { address: "Мира – Каратанова", lat: 56.013123, lon: 92.890778, url: "https://krkvideo2.orionnet.online/cam8450/embed.html?autoplay=false" },
-            { address: "Мира – Кирова", lat: 56.011690, lon: 92.863506, url: "https://irkvideo1.orionnet.online/cam2891/embed.html?autoplay=false" },
-            { address: "Мира – Обручева", lat: 56.010241, lon: 92.835400, url: "https://irkvideo1.orionnet.online/cam3010/embed.html?autoplay=false" },
-            { address: "Мира – Парижской Коммуны", lat: 56.012645, lon: 92.881333, url: "https://krkvideo7.orionnet.online/cam1093/embed.html?autoplay=false" },
-            { address: "Мира – Подбельского", lat: 56.010241, lon: 92.835400, url: "https://irkvideo1.orionnet.online/cam2892/embed.html?autoplay=false" },
-            { address: "Мира – Профсоюзов", lat: 56.010304, lon: 92.837209, url: "https://krkvideo2.orionnet.online/cam1961/embed.html?autoplay=false" },
-            { address: "Мира – Робеспьера", lat: 56.010529, lon: 92.841246, url: "https://krkvideo7.orionnet.online/cam1542/embed.html?autoplay=false" },
-            { address: "Мира – Сурикова", lat: 56.012373, lon: 92.876505, url: "https://krkvideo2.orionnet.online/cam6495/embed.html?autoplay=false" },
-            { address: "Мира 7а", lat: 56.012732, lon: 92.889942, url: "https://krkvideo2.orionnet.online/cam8449/embed.html?autoplay=false" },
-            { address: "Некрасова – Кирова", lat: 56.011786, lon: 92.863693, url: "https://abkvideo2.orionnet.online/cam804/embed.html?autoplay=false" },
-            { address: "Некрасова – Пушкина", lat: 56.009195, lon: 92.818696, url: "https://cam.krk.ru/#!/player/797" },
-            { address: "Некрасова – Советская", lat: 56.010121, lon: 92.813684, url: "https://abkvideo2.orionnet.online/cam796/embed.html?autoplay=false" },
-            { address: "Перенсона – Дубровинского", lat: 56.006953, lon: 92.867622, url: "https://krkvideo2.orionnet.online/cam1938/embed.html?autoplay=false" },
-            { address: "Перенсона – Коммунистическая", lat: 56.016495, lon: 92.866068, url: "https://krkvideo7.orionnet.online/cam13237/embed.html?autoplay=false" },
-            { address: "Республики – Горького", lat: 56.016450, lon: 92.847556, url: "https://krkvideo7.orionnet.online/cam1517/embed.html?autoplay=false" },
-            { address: "Республики – Декабристов", lat: 56.016296, lon: 92.845475, url: "https://krkvideo7.orionnet.online/cam1518/embed.html?autoplay=false" },
-            { address: "Республики – Железнодорожников", lat: 56.016194, lon: 92.843650, url: "https://krkvideo7.orionnet.online/cam3640/embed.html?autoplay=false" },
-            { address: "Сурикова – Ленина", lat: 56.013931, lon: 92.876277, url: "https://krkvideo2.orionnet.online/cam8308/embed.html?autoplay=false" },
-            { address: "Сурикова – Марковского", lat: 56.010848, lon: 92.876746, url: "https://krkvideo7.orionnet.online/cam3750/embed.html?autoplay=false" },
-            { address: "Сурикова 53", lat: 56.015877, lon: 92.875218, url: "https://krkvideo2.orionnet.online/cam6412/embed.html?autoplay=false" },
-            { address: "Чернышевского – Мужества", lat: 56.033075, lon: 92.871740, url: "https://krkvideo7.orionnet.online/cam2184/embed.html?autoplay=false" },
+            { address: "Ады Лебедевой – Вейнбаума", district: "Центральный", lat: 56.016203, lon: 92.870553, url: "https://krkvideo7.orionnet.online/cam3751/embed.html?autoplay=false" },
+            { address: "Ады Лебедевой – Диктатуры", district: "Центральный", lat: 56.015292, lon: 92.858103, url: "https://krkvideo7.orionnet.online/cam1541/embed.html?autoplay=false" },
+            { address: "Ады Лебедевой – Кирова", district: "Центральный", lat: 56.015649, lon: 92.862986, url: "https://krkvideo7.orionnet.online/cam6411/embed.html?autoplay=false" },
+            { address: "Ады Лебедевой – Перенсона", district: "Центральный", lat: 56.015824, lon: 92.866061, url: "https://krkvideo7.orionnet.online/cam1565/embed.html?autoplay=false" },
+            { address: "Бограда – Декабристов", district: "Центральный", lat: 56.006696, lon: 92.847012, url: "https://krkvideo2.orionnet.online/cam1971/embed.html?autoplay=false" },
+            { address: "Бограда – Робеспьера", district: "Центральный", lat: 56.006431, lon: 92.842220, url: "https://krkvideo2.orionnet.online/cam12108/embed.html?autoplay=false" },
+            { address: "Брянская – Вейнбаума", district: "Центральный", lat: 56.020748, lon: 92.868669, url: "https://fluserver.orionnet.online/cam1080/embed.html?autoplay=false" },
+            { address: "Дубровинского – Декабристов", district: "Центральный", lat: 56.004549, lon: 92.849107, url: "https://krkvideo7.orionnet.online/cam522/embed.html?autoplay=false" },
+            { address: "Дубровинского – Карла Маркса – Каратанова", district: "Центральный", lat: 56.011511, lon: 92.891585, url: "https://fluserver.orionnet.online/cam3584/embed.html?autoplay=false" },
+            { address: "Дубровинского – Парижской коммуны", district: "Центральный", lat: 56.008381, lon: 92.881759, url: "https://krkvideo7.orionnet.online/cam1549/embed.html?autoplay=false" },
+            { address: "Дубровинского – Сурикова", district: "Центральный", lat: 56.007635, lon: 92.877197, url: "https://fluserver.orionnet.online/cam1984/embed.html?autoplay=false" },
+            { address: "Дубровинского 106", district: "Центральный", lat: 56.007126, lon: 92.861995, url: "https://fluserver.orionnet.online/cam7799/embed.html?autoplay=false" },
+            { address: "Дубровинского 54а (первая)", district: "Центральный", lat: 56.009381, lon: 92.886429, url: "https://krkvideo7.orionnet.online/cam3752/embed.html?autoplay=false" },
+            { address: "Дубровинского 54а (вторая)", district: "Центральный", lat: 56.009381, lon: 92.886429, url: "https://krkvideo7.orionnet.online/cam3753/embed.html?autoplay=false" },
+            { address: "Караульная – Любы Шевцовой", district: "Центральный", lat: 56.041683, lon: 92.863299, url: "https://fluserver.orionnet.online/cam6504/embed.html?autoplay=false" },
+            { address: "Карла Маркса – 9 Января", district: "Центральный", lat: 56.011269, lon: 92.886242, url: "https://fluserver.orionnet.online/cam1983/embed.html?autoplay=false" },
+            { address: "Карла Маркса – Вейнбаума", district: "Центральный", lat: 56.010541, lon: 92.871547, url: "https://fluserver.orionnet.online/cam3273/embed.html?autoplay=false" },
+            { address: "Карла Маркса – Горького", district: "Центральный", lat: 56.009384, lon: 92.848959, url: "https://fluserver.orionnet.online/cam1106/embed.html?autoplay=false" },
+            { address: "Карла Маркса – Декабристов", district: "Центральный", lat: 56.009226, lon: 92.846621, url: "https://fluserver.orionnet.online/cam1479/embed.html?autoplay=false" },
+            { address: "Карла Маркса – Перенсона", district: "Центральный", lat: 56.010336, lon: 92.867049, url: "https://krkvideo2.orionnet.online/cam8142/embed.html?autoplay=false" },
+            { address: "Карла Маркса – Сурикова", district: "Центральный", lat: 56.010711, lon: 92.873755, url: "https://krkvideo2.orionnet.online/cam3274/embed.html?autoplay=false" },
+            { address: "Карла Маркса 127", district: "Центральный", lat: 56.009919, lon: 92.866693, url: "https://krkvideo2.orionnet.online/cam8143/embed.html?autoplay=false" },
+            { address: "Карла Маркса 132", district: "Центральный", lat: 56.009320, lon: 92.842502, url: "https://krkvideo2.orionnet.online/cam1120/embed.html?autoplay=false" },
+            { address: "Карла Маркса 62", district: "Центральный", lat: 56.010881, lon: 92.873359, url: "https://krkvideo2.orionnet.online/cam3274/embed.html?autoplay=false" },
+            { address: "Красная площадь – Робеспьера – Карла Маркса", district: "Центральный", lat: 56.008426, lon: 92.841855, url: "https://krkvideo7.orionnet.online/cam5871/embed.html?autoplay=false" },
+            { address: "Ленина – Вейнбаума", district: "Центральный", lat: 56.013619, lon: 92.871049, url: "https://fluserver.orionnet.online/cam1469/embed.html?autoplay=false" },
+            { address: "Ленина – Горького", district: "Центральный", lat: 56.012381, lon: 92.848285, url: "https://fluserver.orionnet.online/cam2646/embed.html?autoplay=false" },
+            { address: "Ленина – Декабристов", district: "Центральный", lat: 56.012303, lon: 92.846083, url: "https://fluserver.orionnet.online/cam2648/embed.html?autoplay=false" },
+            { address: "Ленина – Дзержинского", district: "Центральный", lat: 56.012676, lon: 92.856059, url: "https://krkvideo2.orionnet.online/cam8631/embed.html?autoplay=false" },
+            { address: "Ленина – Диктатуры Пролетариата", district: "Центральный", lat: 56.012910, lon: 92.858503, url: "https://fluserver.orionnet.online/cam3667/embed.html?autoplay=false" },
+            { address: "Ленина – Кирова", district: "Центральный", lat: 56.013153, lon: 92.863623, url: "https://krkvideo2.orionnet.online/cam7767/embed.html?autoplay=false" },
+            { address: "Ленина – Парижской Коммуны", district: "Центральный", lat: 56.014262, lon: 92.880895, url: "https://fluserver.orionnet.online/cam2439/embed.html?autoplay=false" },
+            { address: "Ленина 28", district: "Центральный", lat: 56.014519, lon: 92.883734, url: "https://krkvideo7.orionnet.online/cam8289/embed.html?autoplay=false" },
+            { address: "Ленина 92", district: "Центральный", lat: 56.013382, lon: 92.862768, url: "https://krkvideo2.orionnet.online/cam7768/embed.html?autoplay=false" },
+            { address: "Линейная – Березина", district: "Центральный", lat: 56.030802, lon: 92.880274, url: "https://krkvideo7.orionnet.online/cam5235/embed.html?autoplay=false" },
+            { address: "Линейная – Караульная 1", district: "Центральный", lat: 56.044660, lon: 92.878966, url: "https://fluserver.orionnet.online/cam13934/embed.html?autoplay=false" },
+            { address: "Линейная – Караульная 2", district: "Центральный", lat: 56.044660, lon: 92.878966, url: "https://fluserver.orionnet.online/cam13933/embed.html?autoplay=false" },
+            { address: "Линейная – Мартынова", district: "Центральный", lat: 56.038228, lon: 92.879668, url: "https://fluserver.orionnet.online/cam1560/embed.html?autoplay=false" },
+            { address: "Линейная – Мужества", district: "Центральный", lat: 56.033444, lon: 92.880057, url: "https://fluserver.orionnet.online/cam1559/embed.html?autoplay=false" },
+            { address: "Линейная 99", district: "Центральный", lat: 56.036025, lon: 92.879135, url: "https://krkvideo2.orionnet.online/cam8146/embed.html?autoplay=false" },
+            { address: "Маркса – П.Коммуны (Ионесси)", district: "Центральный", lat: 56.010854, lon: 92.879409, url: "https://fluserver.orionnet.online/cam1163/embed.html?autoplay=false" },
+            { address: "Маркса – П.Коммуны (Центр СПИД)", district: "Центральный", lat: 56.011124, lon: 92.883294, url: "https://fluserver.orionnet.online/cam1164/embed.html?autoplay=false" },
+            { address: "Маркса – Сурикова", district: "Центральный", lat: 56.012444, lon: 92.876223, url: "https://krkvideo2.orionnet.online/cam6414/embed.html?autoplay=false" },
+            { address: "Мира – 9 января", district: "Центральный", lat: 56.012933, lon: 92.886003, url: "https://krkvideo2.orionnet.online/cam1105/embed.html?autoplay=false" },
+            { address: "Мира – Горького", district: "Центральный", lat: 56.010881, lon: 92.848501, url: "https://krkvideo2.orionnet.online/cam1156/embed.html?autoplay=false" },
+            { address: "Мира – Декабристов", district: "Центральный", lat: 56.010832, lon: 92.846357, url: "https://krkvideo7.orionnet.online/cam1550/embed.html?autoplay=false" },
+            { address: "Мира – Диктатуры Пролетариата", district: "Центральный", lat: 56.011447, lon: 92.858683, url: "https://krkvideo2.orionnet.online/cam1155/embed.html?autoplay=false" },
+            { address: "Мира – Каратанова", district: "Центральный", lat: 56.013123, lon: 92.890778, url: "https://krkvideo2.orionnet.online/cam8450/embed.html?autoplay=false" },
+            { address: "Мира – Кирова", district: "Центральный", lat: 56.011690, lon: 92.863506, url: "https://irkvideo1.orionnet.online/cam2891/embed.html?autoplay=false" },
+            { address: "Мира – Обручева", district: "Центральный", lat: 56.010241, lon: 92.835400, url: "https://irkvideo1.orionnet.online/cam3010/embed.html?autoplay=false" },
+            { address: "Мира – Парижской Коммуны", district: "Центральный", lat: 56.012645, lon: 92.881333, url: "https://krkvideo7.orionnet.online/cam1093/embed.html?autoplay=false" },
+            { address: "Мира – Профсоюзов", district: "Центральный", lat: 56.010304, lon: 92.837209, url: "https://krkvideo2.orionnet.online/cam1961/embed.html?autoplay=false" },
+            { address: "Мира – Робеспьера", district: "Центральный", lat: 56.010529, lon: 92.841246, url: "https://krkvideo7.orionnet.online/cam1542/embed.html?autoplay=false" },
+            { address: "Мира – Сурикова", district: "Центральный", lat: 56.012373, lon: 92.876505, url: "https://krkvideo2.orionnet.online/cam6495/embed.html?autoplay=false" },
+            { address: "Мира 7а", district: "Центральный", lat: 56.012732, lon: 92.889942, url: "https://krkvideo2.orionnet.online/cam8449/embed.html?autoplay=false" },
+            { address: "Некрасова – Кирова", district: "Центральный", lat: 56.011786, lon: 92.863693, url: "https://abkvideo2.orionnet.online/cam804/embed.html?autoplay=false" },
+            { address: "Перенсона – Дубровинского", district: "Центральный", lat: 56.006953, lon: 92.867622, url: "https://krkvideo2.orionnet.online/cam1938/embed.html?autoplay=false" },
+            { address: "Перенсона – Коммунистическая", district: "Центральный", lat: 56.016495, lon: 92.866068, url: "https://krkvideo7.orionnet.online/cam13237/embed.html?autoplay=false" },
+            { address: "Республики – Горького", district: "Центральный", lat: 56.016450, lon: 92.847556, url: "https://krkvideo7.orionnet.online/cam1517/embed.html?autoplay=false" },
+            { address: "Республики – Декабристов", district: "Центральный", lat: 56.016296, lon: 92.845475, url: "https://krkvideo7.orionnet.online/cam1518/embed.html?autoplay=false" },
+            { address: "Республики – Железнодорожников", district: "Центральный", lat: 56.016194, lon: 92.843650, url: "https://krkvideo7.orionnet.online/cam3640/embed.html?autoplay=false" },
+            { address: "Сурикова – Ленина", district: "Центральный", lat: 56.013931, lon: 92.876277, url: "https://krkvideo2.orionnet.online/cam8308/embed.html?autoplay=false" },
+            { address: "Сурикова – Марковского", district: "Центральный", lat: 56.010848, lon: 92.876746, url: "https://krkvideo7.orionnet.online/cam3750/embed.html?autoplay=false" },
+            { address: "Сурикова 53", district: "Центральный", lat: 56.015877, lon: 92.875218, url: "https://krkvideo2.orionnet.online/cam6412/embed.html?autoplay=false" },
+            { address: "Чернышевского – Мужества", district: "Центральный", lat: 56.033075, lon: 92.871740, url: "https://krkvideo7.orionnet.online/cam2184/embed.html?autoplay=false" },
 
             // ===== Октябрьский =====
-            { address: "Баркова – Пихтовая", lat: 56.033075, lon: 92.871740, url: "https://fluserver.orionnet.online/cam3061/embed.html?autoplay=false" },
-            { address: "Вильского – Лесопарковая", lat: 56.019656, lon: 92.764739, url: "https://krkvideo7.orionnet.online/cam3041/embed.html?autoplay=false" },
-            { address: "Высотная – Гусарова", lat: 56.030272, lon: 92.775741, url: "https://krkvideo7.orionnet.online/cam26/embed.html?autoplay=false" },
-            { address: "Высотная – Крупской", lat: 56.024293, lon: 92.784451, url: "https://krkvideo7.orionnet.online/cam5875/embed.html?autoplay=false" },
-            { address: "Высотная – Хабаровская 1-я", lat: 56.021578, lon: 92.789214, url: "https://krkvideo7.orionnet.online/cam1543/embed.html?autoplay=false" },
-            { address: "Высотная 11", lat: 56.022328, lon: 92.787291, url: "https://krkvideo2.orionnet.online/cam8206/embed.html?autoplay=false" },
-            { address: "Высотная 4а", lat: 56.026408, lon: 92.781883, url: "https://krkvideo2.orionnet.online/cam7563/embed.html?autoplay=false" },
-            { address: "Годенко – Киренского", lat: 56.015214, lon: 92.800078, url: "https://krkvideo7.orionnet.online/cam1337/embed.html?autoplay=false" },
-            { address: "Годенко", lat: 56.016796, lon: 92.797385, url: "https://krkvideo7.orionnet.online/cam1338/embed.html?autoplay=false" },
-            { address: "Годенко – Свободный – Высотная", lat: 56.018741, lon: 92.794369, url: "https://krkvideo2.orionnet.online/cam3188/embed.html?autoplay=false" },
-            { address: "Курчатова – Свободный – Луначарского", lat: 56.015834, lon: 92.788440, url: "https://krkvideo7.orionnet.online/cam3125/embed.html?autoplay=false" },
-            { address: "Курчатова 15б (1)", lat: 56.017025, lon: 92.779090, url: "https://krkvideo7.orionnet.online/cam7468/embed.html?autoplay=false" },
-            { address: "Курчатова 15б (2)", lat: 56.017025, lon: 92.779090, url: "https://fluserver.orionnet.online/cam7467/embed.html?autoplay=false" },
-            { address: "Мате Залки – Шумяцкого", lat: 56.066714, lon: 92.937820, url: "https://krkvideo2.orionnet.online/cam6494/embed.html?autoplay=false" },
-            { address: "Мате Залки 7 (1)", lat: 56.065113, lon: 92.943382, url: "https://fluserver.orionnet.online/cam15107/embed.html?autoplay=false" },
-            { address: "Мате Залки 7 (2)", lat: 56.065113, lon: 92.943382, url: "https://fluserver.orionnet.online/cam15104/embed.html?autoplay=false" },
-            { address: "Стасовой 50 (1)", lat: 56.021060, lon: 92.731712, url: "https://krkvideo2.orionnet.online/cam8670/embed.html?autoplay=false" },
-            { address: "Стасовой 50 (2)", lat: 56.021060, lon: 92.731712, url: "https://krkvideo2.orionnet.online/cam8671/embed.html?autoplay=false" },
+            { address: "Вильского – Лесопарковая", district: "Октябрьский", lat: 56.019656, lon: 92.764739, url: "https://krkvideo7.orionnet.online/cam3041/embed.html?autoplay=false" },
+            { address: "Высотная – Гусарова", district: "Октябрьский", lat: 56.030272, lon: 92.775741, url: "https://krkvideo7.orionnet.online/cam26/embed.html?autoplay=false" },
+            { address: "Высотная – Крупской", district: "Октябрьский", lat: 56.024293, lon: 92.784451, url: "https://krkvideo7.orionnet.online/cam5875/embed.html?autoplay=false" },
+            { address: "Высотная – Хабаровская 1-я", district: "Октябрьский", lat: 56.021578, lon: 92.789214, url: "https://krkvideo7.orionnet.online/cam1543/embed.html?autoplay=false" },
+            { address: "Высотная 11", district: "Октябрьский", lat: 56.022328, lon: 92.787291, url: "https://krkvideo2.orionnet.online/cam8206/embed.html?autoplay=false" },
+            { address: "Высотная 4а", district: "Октябрьский", lat: 56.026408, lon: 92.781883, url: "https://krkvideo2.orionnet.online/cam7563/embed.html?autoplay=false" },
+            { address: "Годенко – Киренского", district: "Октябрьский", lat: 56.015214, lon: 92.800078, url: "https://krkvideo7.orionnet.online/cam1337/embed.html?autoplay=false" },
+            { address: "Годенко", district: "Октябрьский", lat: 56.016796, lon: 92.797385, url: "https://krkvideo7.orionnet.online/cam1338/embed.html?autoplay=false" },
+            { address: "Годенко – Свободный – Высотная", district: "Октябрьский", lat: 56.018741, lon: 92.794369, url: "https://krkvideo2.orionnet.online/cam3188/embed.html?autoplay=false" },
+            { address: "Курчатова – Свободный – Луначарского", district: "Октябрьский", lat: 56.015834, lon: 92.788440, url: "https://krkvideo7.orionnet.online/cam3125/embed.html?autoplay=false" },
+            { address: "Курчатова 15б (1)", district: "Октябрьский", lat: 56.016958, lon: 92.777916, url: "https://krkvideo7.orionnet.online/cam7468/embed.html?autoplay=false" },
+            { address: "Курчатова 15б (2)", district: "Октябрьский", lat: 56.017025, lon: 92.779090, url: "https://fluserver.orionnet.online/cam7467/embed.html?autoplay=false" },
+            { address: "Мате Залки 7 (1)", district: "Октябрьский", lat: 56.065493, lon: 92.942869, url: "https://fluserver.orionnet.online/cam15107/embed.html?autoplay=false" },
+            { address: "Мате Залки 7 (2)", district: "Октябрьский", lat: 56.065113, lon: 92.943382, url: "https://fluserver.orionnet.online/cam15104/embed.html?autoplay=false" },
+            { address: "Стасовой 50 (1)", district: "Октябрьский", lat: 56.020722, lon: 92.731562, url: "https://krkvideo2.orionnet.online/cam8670/embed.html?autoplay=false" },
+            { address: "Стасовой 50 (2)", district: "Октябрьский", lat: 56.021060, lon: 92.731712, url: "https://krkvideo2.orionnet.online/cam8671/embed.html?autoplay=false" },
+            { address: "Вильского 34", district: "Октябрьский", lat: 56.021467, lon: 92.756470, url: "https://krkvideo7.orionnet.online/cam14357/embed.html?autoplay=false" },
+            { address: "Забобонова – Лесопарковая", district: "Октябрьский", lat: 56.018124, lon: 92.770534, url: "https://krkvideo7.orionnet.online/cam3998/embed.html?autoplay=false" },
+            { address: "Лесопарковая – Садовая", district: "Октябрьский", lat: 56.020310, lon: 92.756375, url: "https://krkvideo7.orionnet.online/cam6630/embed.html?autoplay=false" },
+            { address: "Лесопарковая – Сады", district: "Октябрьский", lat: 56.018390, lon: 92.768609, url: "https://krkvideo7.orionnet.online/cam1157/embed.html?autoplay=false" },
+            { address: "Киренского - Новосибирская", district: "Октябрьский", lat: 56.017164, lon: 92.800900, url: "https://fluserver.orionnet.online/cam5344/embed.html?autoplay=false" },
+            { address: "Серова - Пролетарская", district: "Октябрьский", lat: 56.013012, lon: 92.798702, url: "https://krkvideo7.orionnet.online/cam7084/embed.html?autoplay=false" },
+            { address: "Киренского - Копылова", district: "Октябрьский", lat: 56.012204, lon: 92.801232, url: "https://krkvideo7.orionnet.online/cam7086/embed.html?autoplay=false" },
+            { address: "Киренского - Пролетарская", district: "Октябрьский", lat: 56.013103, lon: 92.801043, url: "https://krkvideo7.orionnet.online/cam7085/embed.html?autoplay=false" },
+            { address: "Киренского - Советская", district: "Октябрьский", lat: 56.009448, lon: 92.801381, url: "https://krkvideo7.orionnet.online/cam5233/embed.html?autoplay=false" },
+            { address: "Волочаевская 11а (в сторону Копылова)", district: "Октябрьский", lat: 56.002630, lon: 92.806257, url: "https://krkvideo7.orionnet.online/cam8812/embed.html?autoplay=false" },
+            { address: "Волочаевская 11а (в сторону моста)", district: "Октябрьский", lat: 56.003326, lon: 92.806429, url: "https://krkvideo7.orionnet.online/cam8813/embed.html?autoplay=false" },
+            { address: "Огородная 2-я 26", district: "Октябрьский", lat: 55.996676, lon: 92.801332, url: "https://krkvideo7.orionnet.online/cam13241/embed.html?autoplay=false" },
 
             // ===== Железнодорожный =====
-            { address: "Брянская – Игарская", lat: 56.019848, lon: 92.876683, url: "https://krkvideo7.orionnet.online/cam24/embed.html?autoplay=false" },
-            { address: "Брянская – Эвенкийская", lat: 56.026173, lon: 92.841283, url: "https://krkvideo7.orionnet.online/cam5346/embed.html?autoplay=false" },
-            { address: "Железнодорожников – Красной Гвардии", lat: 56.022707, lon: 92.840927, url: "https://krkvideo2.orionnet.online/cam7211/embed.html?autoplay=false" },
-            { address: "Железнодорожников 14а (1)", lat: 56.018695, lon: 92.844128, url: "https://krkvideo2.orionnet.online/cam12230/embed.html?autoplay=false" },
-            { address: "Железнодорожников 14а (2)", lat: 56.018695, lon: 92.844128, url: "https://krkvideo2.orionnet.online/cam12229/embed.html?autoplay=false" },
-            { address: "Железнодорожников 22д", lat: 56.025286, lon: 92.841442, url: "https://krkvideo2.orionnet.online/cam5345/embed.html?autoplay=false" },
-            { address: "Железнодорожников 32", lat: 56.024607, lon: 92.836977, url: "https://krkvideo2.orionnet.online/cam7209/embed.html?autoplay=false" },
-            { address: "Калинина – Камская", lat: 56.032742, lon: 92.813943, url: "https://krkvideo2.orionnet.online/cam5256/embed.html?autoplay=false" },
-            { address: "Калинина – Маерчака – Брянская", lat: 56.035529, lon: 92.831165, url: "https://krkvideo2.orionnet.online/cam4835/embed.html?autoplay=false" },
-            { address: "Калинина — Маерчака", lat: 56.035529, lon: 92.831165, url: "https://krkvideo2.orionnet.online/cam2209/embed.html?autoplay=false" },
-            { address: "Калинина 70в", lat: 56.033892, lon: 92.803829, url: "https://krkvideo2.orionnet.online/cam7194/embed.html?autoplay=false" },
-            { address: "Калинина 74", lat: 56.035678, lon: 92.794675, url: "https://krkvideo7.orionnet.online/cam7547/embed.html?autoplay=false" },
-            { address: "Калинина 8", lat: 56.034456, lon: 92.821607, url: "https://krkvideo7.orionnet.online/cam13865/embed.html?autoplay=false" },
-            { address: "Калинина 80а", lat: 56.036990, lon: 92.791154, url: "https://krkvideo7.orionnet.online/cam7446/embed.html?autoplay=false" },
-            { address: "Копылова – 4-й мост", lat: 56.012381, lon: 92.807785, url: "https://krkvideo7.orionnet.online/cam2797/embed.html?autoplay=false" },
-            { address: "Копылова – Ладо Кецховели", lat: 56.012427, lon: 92.813425, url: "https://krkvideo7.orionnet.online/cam6590/embed.html?autoplay=false" },
-            { address: "Копылова 42", lat: 56.013341, lon: 92.822559, url: "https://krkvideo7.orionnet.online/cam8319/embed.html?autoplay=false" },
-            { address: "Маерчака – Заводская", lat: 56.022004, lon: 92.842282, url: "https://krkvideo7.orionnet.online/cam7449/embed.html?autoplay=false" },
-            { address: "Маерчака – Красной Гвардии", lat: 56.021376, lon: 92.837017, url: "https://krkvideo7.orionnet.online/cam7447/embed.html?autoplay=false" },
-            { address: "Маерчака 42", lat: 56.026815, lon: 92.832764, url: "https://krkvideo7.orionnet.online/cam7771/embed.html?autoplay=false" },
-            { address: "Свободный – Годенко", lat: 56.019636, lon: 92.794654, url: "https://krkvideo7.orionnet.online/cam22/embed.html?autoplay=false" },
-            { address: "Свободный – Красномосковская", lat: 56.023820, lon: 92.819911, url: "https://krkvideo7.orionnet.online/cam1561/embed.html?autoplay=false" },
-            { address: "Свободный – Лесопарковая", lat: 56.015573, lon: 92.788274, url: "https://fluserver.orionnet.online/cam3124/embed.html?autoplay=false" },
-            { address: "Свободный – Омская", lat: 56.023769, lon: 92.816522, url: "https://fluserver.orionnet.online/cam5872/embed.html?autoplay=false" },
-            { address: "Свободный – Телевизорная", lat: 56.023415, lon: 92.803017, url: "https://krkvideo7.orionnet.online/cam1552/embed.html?autoplay=false" },
+            { address: "Брянская – Игарская", district: "Железнодорожный", lat: 56.019848, lon: 92.876683, url: "https://krkvideo7.orionnet.online/cam24/embed.html?autoplay=false" },
+            { address: "Брянская – Эвенкийская", district: "Железнодорожный", lat: 56.026173, lon: 92.841283, url: "https://krkvideo7.orionnet.online/cam5346/embed.html?autoplay=false" },
+            { address: "Железнодорожников – Красной Гвардии", district: "Железнодорожный", lat: 56.022707, lon: 92.840927, url: "https://krkvideo2.orionnet.online/cam7211/embed.html?autoplay=false" },
+            { address: "Железнодорожников 14а (1)", district: "Железнодорожный", lat: 56.018695, lon: 92.844128, url: "https://krkvideo2.orionnet.online/cam12230/embed.html?autoplay=false" },
+            { address: "Железнодорожников 14а (2)", district: "Железнодорожный", lat: 56.018695, lon: 92.844128, url: "https://krkvideo2.orionnet.online/cam12229/embed.html?autoplay=false" },
+            { address: "Железнодорожников 22д", district: "Железнодорожный", lat: 56.025286, lon: 92.841442, url: "https://krkvideo2.orionnet.online/cam5345/embed.html?autoplay=false" },
+            { address: "Железнодорожников 32", district: "Железнодорожный", lat: 56.024607, lon: 92.836977, url: "https://krkvideo2.orionnet.online/cam7209/embed.html?autoplay=false" },
+            { address: "Калинина – Камская", district: "Железнодорожный", lat: 56.032742, lon: 92.813943, url: "https://krkvideo2.orionnet.online/cam5256/embed.html?autoplay=false" },
+            { address: "Калинина – Маерчака – Брянская", district: "Железнодорожный", lat: 56.035529, lon: 92.831165, url: "https://krkvideo2.orionnet.online/cam4835/embed.html?autoplay=false" },
+            { address: "Калинина — Маерчака", district: "Железнодорожный", lat: 56.035529, lon: 92.831165, url: "https://krkvideo2.orionnet.online/cam2209/embed.html?autoplay=false" },
+            { address: "Калинина 70в", district: "Железнодорожный", lat: 56.033892, lon: 92.803829, url: "https://krkvideo2.orionnet.online/cam7194/embed.html?autoplay=false" },
+            { address: "Калинина 74", district: "Железнодорожный", lat: 56.035678, lon: 92.794675, url: "https://krkvideo7.orionnet.online/cam7547/embed.html?autoplay=false" },
+            { address: "Калинина 8", district: "Железнодорожный", lat: 56.034456, lon: 92.821607, url: "https://krkvideo7.orionnet.online/cam13865/embed.html?autoplay=false" },
+            { address: "Калинина 80а", district: "Железнодорожный", lat: 56.036990, lon: 92.791154, url: "https://krkvideo7.orionnet.online/cam7446/embed.html?autoplay=false" },
+            { address: "Копылова – 4-й мост", district: "Железнодорожный", lat: 56.012381, lon: 92.807785, url: "https://krkvideo7.orionnet.online/cam2797/embed.html?autoplay=false" },
+            { address: "Копылова – Ладо Кецховели", district: "Железнодорожный", lat: 56.012427, lon: 92.813425, url: "https://krkvideo7.orionnet.online/cam6590/embed.html?autoplay=false" },
+            { address: "Копылова 42", district: "Железнодорожный", lat: 56.013341, lon: 92.822559, url: "https://krkvideo7.orionnet.online/cam8319/embed.html?autoplay=false" },
+            { address: "Маерчака – Заводская", district: "Железнодорожный", lat: 56.022004, lon: 92.842282, url: "https://krkvideo7.orionnet.online/cam7449/embed.html?autoplay=false" },
+            { address: "Маерчака – Красной Гвардии", district: "Железнодорожный", lat: 56.021376, lon: 92.837017, url: "https://krkvideo7.orionnet.online/cam7447/embed.html?autoplay=false" },
+            { address: "Маерчака 42", district: "Железнодорожный", lat: 56.026815, lon: 92.832764, url: "https://krkvideo7.orionnet.online/cam7771/embed.html?autoplay=false" },
+            { address: "Свободный – Годенко", district: "Железнодорожный", lat: 56.019636, lon: 92.794654, url: "https://krkvideo7.orionnet.online/cam22/embed.html?autoplay=false" },
+            { address: "Свободный – Красномосковская", district: "Железнодорожный", lat: 56.023820, lon: 92.819911, url: "https://krkvideo7.orionnet.online/cam1561/embed.html?autoplay=false" },
+            { address: "Свободный – Лесопарковая", district: "Железнодорожный", lat: 56.015573, lon: 92.788274, url: "https://fluserver.orionnet.online/cam3124/embed.html?autoplay=false" },
+            { address: "Свободный – Омская", district: "Железнодорожный", lat: 56.023769, lon: 92.816522, url: "https://fluserver.orionnet.online/cam5872/embed.html?autoplay=false" },
+            { address: "Свободный – Телевизорная", district: "Железнодорожный", lat: 56.023415, lon: 92.803017, url: "https://krkvideo7.orionnet.online/cam1552/embed.html?autoplay=false" },
 
             // ===== Советский =====
-            { address: "40 лет Победы - Солнечный", lat: 56.111695, lon: 92.928129, url: "https://fluserver.orionnet.online/cam7995/embed.html?autoplay=false" },
-            { address: "78 Добровольческой бригады 19 (1)", lat: 56.044769, lon: 92.906165, url: "https://krkvideo7.orionnet.online/cam1470/embed.html?autoplay=false" },
-            { address: "78 Добровольческой бригады 19 (2)", lat: 56.044769, lon: 92.906165, url: "https://krkvideo7.orionnet.online/cam1471/embed.html?autoplay=false" },
-            { address: "78 Добровольческой бригады 3", lat: 56.038288, lon: 92.916217, url: "https://krkvideo7.orionnet.online/cam1506/embed.html?autoplay=false" },
-            { address: "78 Добровольческой бригады 7 (1)", lat: 56.041048, lon: 92.910306, url: "https://krkvideo7.orionnet.online/cam1475/embed.html?autoplay=false" },
-            { address: "78 Добровольческой бригады 7 (2)", lat: 56.041048, lon: 92.910306, url: "https://krkvideo7.orionnet.online/cam1474/embed.html?autoplay=false" },
-            { address: "9 Мая – 78 Добровольческой Бригады", lat: 56.050595, lon: 92.897898, url: "https://krkvideo7.orionnet.online/cam289/embed.html?autoplay=false" },
-            { address: "9 Мая – Авиаторов", lat: 56.054125, lon: 92.904938, url: "https://krkvideo7.orionnet.online/cam70/embed.html?autoplay=false" },
-            { address: "9 Мая – Водопьянова (1)", lat: 56.058553, lon: 92.913639, url: "https://krkvideo7.orionnet.online/cam1/embed.html?autoplay=false" },
-            { address: "9 Мая – Водопьянова (2)", lat: 56.058553, lon: 92.913639, url: "https://krkvideo7.orionnet.online/cam7206/embed.html?autoplay=false" },
-            { address: "9 Мая – Комсомольский", lat: 56.065564, lon: 92.927973, url: "https://krkvideo7.orionnet.online/cam16/embed.html?autoplay=false" },
-            { address: "9 Мая – Урванцева", lat: 56.062119, lon: 92.920877, url: "https://krkvideo7.orionnet.online/cam2793/embed.html?autoplay=false" },
-            { address: "9 Мая – Шумяцкого", lat: 56.068924, lon: 92.934338, url: "https://krkvideo7.orionnet.online/cam128/embed.html?autoplay=false" },
-            { address: "9 Мая 38а", lat: 56.060670, lon: 92.916352, url: "https://krkvideo7.orionnet.online/cam1440/embed.html?autoplay=false" },
-            { address: "9 Мая 59", lat: 56.057463, lon: 92.913522, url: "https://krkvideo7.orionnet.online/cam7205/embed.html?autoplay=false" },
-            { address: "9 Мая 69 (1)", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam6588/embed.html?autoplay=false" },
-            { address: "9 Мая 69 (2)", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam6587/embed.html?autoplay=false" },
-            { address: "Авиаторов – Алексеева", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam277/embed.html?autoplay=false" },
-            { address: "Авиаторов – Молокова", lat: 56.047415, lon: 92.916814, url: "https://krkvideo7.orionnet.online/cam524/embed.html?autoplay=false" },
-            { address: "Авиаторов 23 (1)", lat: 56.043351, lon: 92.920556, url: "https://krkvideo2.orionnet.online/cam6416/embed.html?autoplay=false" },
-            { address: "Авиаторов 23 (2)", lat: 56.043351, lon: 92.920556, url: "https://krkvideo2.orionnet.online/cam6415/embed.html?autoplay=false" },
-            { address: "Авиаторов 41 (1)", lat: 56.048379, lon: 92.911115, url: "https://krkvideo2.orionnet.online/cam6490/embed.html?autoplay=false" },
-            { address: "Авиаторов 41 (2)", lat: 56.048379, lon: 92.911115, url: "https://krkvideo7.orionnet.online/cam6489/embed.html?autoplay=false" },
-            { address: "Авиаторов 45", lat: 56.057971, lon: 92.896859, url: "https://krkvideo7.orionnet.online/cam3225/embed.html?autoplay=false" },
-            { address: "Авиаторов 62 (1)", lat: 56.053236, lon: 92.908106, url: "https://krkvideo7.orionnet.online/cam6689/embed.html?autoplay=false" },
-            { address: "Авиаторов 62 (2)", lat: 56.053236, lon: 92.908106, url: "https://krkvideo7.orionnet.online/cam6690/embed.html?autoplay=false" },
-            { address: "Алексеева – Батурина", lat: 56.043816, lon: 92.897148, url: "https://krkvideo7.orionnet.online/cam1914/embed.html?autoplay=false" },
-            { address: "Алексеева – Водопьянова", lat: 56.054882, lon: 92.919467, url: "https://krkvideo7.orionnet.online/cam68/embed.html?autoplay=false" },
-            { address: "Алексеева 89", lat: 56.047188, lon: 92.906156, url: "https://krkvideo2.orionnet.online/cam4908/embed.html?autoplay=false" },
-            { address: "Взлётная – Аэровокзальная", lat: 56.031288, lon: 92.907511, url: "https://krkvideo7.orionnet.online/cam13235/embed.html?autoplay=false" },
-            { address: "Взлётная – Березина", lat: 56.033484, lon: 92.910184, url: "https://krkvideo7.orionnet.online/cam3430/embed.html?autoplay=false" },
-            { address: "Взлётная – Октябрьская", lat: 56.033891, lon: 92.919844, url: "https://krkvideo7.orionnet.online/cam2343/embed.html?autoplay=false" },
-            { address: "Взлётная 24", lat: 56.034290, lon: 92.905725, url: "https://krkvideo7.orionnet.online/cam13236/embed.html?autoplay=false" },
-            { address: "Взлётная 30 (1)", lat: 56.034239, lon: 92.898970, url: "https://krkvideo2.orionnet.online/cam7984/embed.html?autoplay=false" },
-            { address: "Взлётная 30 (2)", lat: 56.034239, lon: 92.898970, url: "https://krkvideo2.orionnet.online/cam7985/embed.html?autoplay=false" },
-            { address: "Воронова – Краснодарская", lat: 56.054493, lon: 92.941688, url: "https://krkvideo7.orionnet.online/cam7131/embed.html?autoplay=false" },
-            { address: "Воронова – Рокоссовского", lat: 56.060248, lon: 92.959520, url: "https://krkvideo2.orionnet.online/cam3681/embed.html?autoplay=false" },
-            { address: "Воронова – Ястынская", lat: 56.064101, lon: 92.953298, url: "https://krkvideo7.orionnet.online/cam7132/embed.html?autoplay=false" },
-            { address: "Комсомольский – Ястынская", lat: 56.058277, lon: 92.939997, url: "https://krkvideo7.orionnet.online/cam2158/embed.html?autoplay=false" },
-            { address: "Краснодарская – Армейская", lat: 56.053917, lon: 92.941106, url: "https://fluserver.orionnet.online/cam13303/embed.html?autoplay=false" },
-            { address: "Краснодарская – Металлургов", lat: 56.042762, lon: 92.941219, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
-            { address: "Краснодарская 22а", lat: 56.049375, lon: 92.940283, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
-            { address: "Краснодарская 40/2", lat: 56.052552, lon: 92.940265, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
-            { address: "Металлургов – Быковского", lat: 56.060830, lon: 92.970393, url: "https://krkvideo2.orionnet.online/cam5347/embed.html?autoplay=false" },
-            { address: "Металлургов – Краснодарская (Панорама)", lat: 56.044636, lon: 92.942461, url: "https://krkvideo2.orionnet.online/cam2160/embed.html?autoplay=false" },
-            { address: "Металлургов – Тельмана", lat: 56.051436, lon: 92.955296, url: "https://krkvideo7.orionnet.online/cam2484/embed.html?autoplay=false" },
-            { address: "Металлургов 9а", lat: 56.059514, lon: 92.969478, url: "https://krkvideo2.orionnet.online/cam5349/embed.html?autoplay=false" },
-            { address: "Молокова – 78 Д.Б. – Авиаторов", lat: 56.050078, lon: 92.911492, url: "https://krkvideo7.orionnet.online/cam72/embed.html?autoplay=false" },
-            { address: "Молокова – Батурина", lat: 56.040432, lon: 92.902812, url: "https://krkvideo7.orionnet.online/cam73/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Аэровокзальная (1)", lat: 56.026729, lon: 92.907851, url: "https://krkvideo7.orionnet.online/cam2483/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Аэровокзальная (2)", lat: 56.026729, lon: 92.907851, url: "https://krkvideo2.orionnet.online/cam7775/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Аэровокзальная (3)", lat: 56.026729, lon: 92.907851, url: "https://krkvideo2.orionnet.online/cam3040/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Кристалл", lat: 56.035478, lon: 92.927316, url: "https://krkvideo2.orionnet.online/cam2807/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Никитина", lat: 56.030112, lon: 92.916819, url: "https://fluserver.orionnet.online/cam7773/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Ньютон, Июнь", lat: 56.037186, lon: 92.932364, url: "https://krkvideo7.orionnet.online/cam7079/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Октябрьская (1)", lat: 56.032831, lon: 92.921401, url: "https://krkvideo7.orionnet.online/cam2806/embed.html?autoplay=false" },
-            { address: "Партизана Железняка – Октябрьская (2)", lat: 56.039836, lon: 92.935164, url: "https://krkvideo7.orionnet.online/cam6670/embed.html?autoplay=false" },
-            { address: "Партизана Железняка 2г (Медуниверситет)", lat: 56.023704, lon: 92.903944, url: "https://krkvideo7.orionnet.online/cam3399/embed.html?autoplay=false" },
-            { address: "Партизана Железняка 32", lat: 56.031900, lon: 92.919290, url: "https://krkvideo7.orionnet.online/cam23/embed.html?autoplay=false" },
-            { address: "Партизана Железняка 48д", lat: 56.040666, lon: 92.934687, url: "https://krkvideo2.orionnet.online/cam7080/embed.html?autoplay=false" },
-            { address: "Славы – 40 лет Победы", lat: 56.111695, lon: 92.928129, url: "https://krkvideo7.orionnet.online/cam7779/embed.html?autoplay=false" },
-            { address: "Славы – пр. 60 лет образования СССР", lat: 56.113677, lon: 92.919204, url: "https://krkvideo7.orionnet.online/cam7780/embed.html?autoplay=false" },
-            { address: "Тельмана – Ферганская", lat: 56.052511, lon: 92.973977, url: "https://krkvideo7.orionnet.online/cam4981/embed.html?autoplay=false" },
-            { address: "Устиновича – Терешковой", lat: 56.054031, lon: 92.969719, url: "https://krkvideo2.orionnet.online/cam4980/embed.html?autoplay=false" },
-            { address: "Шахтёров – Молокова – Взлётная", lat: 56.034935, lon: 92.892330, url: "https://krkvideo7.orionnet.online/cam129/embed.html?autoplay=false" },
-            { address: "Шахтеров 38", lat: 56.038574, lon: 92.893840, url: "https://krkvideo7.orionnet.online/cam6592/embed.html?autoplay=false" },
-            { address: "Ястынская – Воронова – Космонавтов", lat: 56.058887, lon: 92.942678, url: "https://krkvideo2.orionnet.online/cam1970/embed.html?autoplay=false" },
-            { address: "Ястынская 19а", lat: 56.062851, lon: 92.947065, url: "https://krkvideo2.orionnet.online/cam4293/embed.html?autoplay=false" },
-            { address: "Ястынская 6 (1)", lat: 56.060052, lon: 92.946050, url: "https://krkvideo7.orionnet.online/cam7136/embed.html?autoplay=false" },
-            { address: "Ястынская 6 (2)", lat: 56.060052, lon: 92.946050, url: "https://krkvideo7.orionnet.online/cam7137/embed.html?autoplay=false" },
+            { address: "40 лет Победы - Солнечный", district: "Советский", lat: 56.111695, lon: 92.928129, url: "https://fluserver.orionnet.online/cam7995/embed.html?autoplay=false" },
+            { address: "78 Добровольческой бригады 19 (1)", district: "Советский", lat: 56.044769, lon: 92.906165, url: "https://krkvideo7.orionnet.online/cam1470/embed.html?autoplay=false" },
+            { address: "78 Добровольческой бригады 19 (2)", district: "Советский", lat: 56.044769, lon: 92.906165, url: "https://krkvideo7.orionnet.online/cam1471/embed.html?autoplay=false" },
+            { address: "78 Добровольческой бригады 3", district: "Советский", lat: 56.038288, lon: 92.916217, url: "https://krkvideo7.orionnet.online/cam1506/embed.html?autoplay=false" },
+            { address: "78 Добровольческой бригады 7 (1)", district: "Советский", lat: 56.041048, lon: 92.910306, url: "https://krkvideo7.orionnet.online/cam1475/embed.html?autoplay=false" },
+            { address: "78 Добровольческой бригады 7 (2)", district: "Советский", lat: 56.041048, lon: 92.910306, url: "https://krkvideo7.orionnet.online/cam1474/embed.html?autoplay=false" },
+            { address: "9 Мая – 78 Добровольческой Бригады", district: "Советский", lat: 56.050595, lon: 92.897898, url: "https://krkvideo7.orionnet.online/cam289/embed.html?autoplay=false" },
+            { address: "9 Мая – Авиаторов", district: "Советский", lat: 56.054125, lon: 92.904938, url: "https://krkvideo7.orionnet.online/cam70/embed.html?autoplay=false" },
+            { address: "9 Мая – Водопьянова (1)", district: "Советский", lat: 56.058553, lon: 92.913639, url: "https://krkvideo7.orionnet.online/cam1/embed.html?autoplay=false" },
+            { address: "9 Мая – Водопьянова (2)", district: "Советский", lat: 56.058553, lon: 92.913639, url: "https://krkvideo7.orionnet.online/cam7206/embed.html?autoplay=false" },
+            { address: "9 Мая – Комсомольский", district: "Советский", lat: 56.065564, lon: 92.927973, url: "https://krkvideo7.orionnet.online/cam16/embed.html?autoplay=false" },
+            { address: "9 Мая – Урванцева", district: "Советский", lat: 56.062119, lon: 92.920877, url: "https://krkvideo7.orionnet.online/cam2793/embed.html?autoplay=false" },
+            { address: "9 Мая – Шумяцкого", district: "Советский", lat: 56.068924, lon: 92.934338, url: "https://krkvideo7.orionnet.online/cam128/embed.html?autoplay=false" },
+            { address: "9 Мая 38а", district: "Советский", lat: 56.060670, lon: 92.916352, url: "https://krkvideo7.orionnet.online/cam1440/embed.html?autoplay=false" },
+            { address: "9 Мая 59", district: "Советский", lat: 56.057463, lon: 92.913522, url: "https://krkvideo7.orionnet.online/cam7205/embed.html?autoplay=false" },
+            { address: "9 Мая 69 (1)", district: "Советский", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam6588/embed.html?autoplay=false" },
+            { address: "9 Мая 69 (2)", district: "Советский", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam6587/embed.html?autoplay=false" },
+            { address: "Авиаторов – Алексеева", district: "Советский", lat: 56.055563, lon: 92.909723, url: "https://krkvideo7.orionnet.online/cam277/embed.html?autoplay=false" },
+            { address: "Авиаторов – Молокова", district: "Советский", lat: 56.047415, lon: 92.916814, url: "https://krkvideo7.orionnet.online/cam524/embed.html?autoplay=false" },
+            { address: "Авиаторов 23 (1)", district: "Советский", lat: 56.043351, lon: 92.920556, url: "https://krkvideo2.orionnet.online/cam6416/embed.html?autoplay=false" },
+            { address: "Авиаторов 23 (2)", district: "Советский", lat: 56.043351, lon: 92.920556, url: "https://krkvideo2.orionnet.online/cam6415/embed.html?autoplay=false" },
+            { address: "Авиаторов 41 (1)", district: "Советский", lat: 56.048379, lon: 92.911115, url: "https://krkvideo2.orionnet.online/cam6490/embed.html?autoplay=false" },
+            { address: "Авиаторов 41 (2)", district: "Советский", lat: 56.048379, lon: 92.911115, url: "https://krkvideo7.orionnet.online/cam6489/embed.html?autoplay=false" },
+            { address: "Авиаторов 45", district: "Советский", lat: 56.057971, lon: 92.896859, url: "https://krkvideo7.orionnet.online/cam3225/embed.html?autoplay=false" },
+            { address: "Авиаторов 62 (1)", district: "Советский", lat: 56.053236, lon: 92.908106, url: "https://krkvideo7.orionnet.online/cam6689/embed.html?autoplay=false" },
+            { address: "Авиаторов 62 (2)", district: "Советский", lat: 56.053236, lon: 92.908106, url: "https://krkvideo7.orionnet.online/cam6690/embed.html?autoplay=false" },
+            { address: "Алексеева – Батурина", district: "Советский", lat: 56.043816, lon: 92.897148, url: "https://krkvideo7.orionnet.online/cam1914/embed.html?autoplay=false" },
+            { address: "Алексеева – Водопьянова", district: "Советский", lat: 56.054882, lon: 92.919467, url: "https://krkvideo7.orionnet.online/cam68/embed.html?autoplay=false" },
+            { address: "Алексеева 89", district: "Советский", lat: 56.047188, lon: 92.906156, url: "https://krkvideo2.orionnet.online/cam4908/embed.html?autoplay=false" },
+            { address: "Взлётная – Аэровокзальная", district: "Советский", lat: 56.031288, lon: 92.907511, url: "https://krkvideo7.orionnet.online/cam13235/embed.html?autoplay=false" },
+            { address: "Взлётная – Березина", district: "Советский", lat: 56.033484, lon: 92.910184, url: "https://krkvideo7.orionnet.online/cam3430/embed.html?autoplay=false" },
+            { address: "Взлётная – Октябрьская", district: "Советский", lat: 56.033891, lon: 92.919844, url: "https://krkvideo7.orionnet.online/cam2343/embed.html?autoplay=false" },
+            { address: "Взлётная 24", district: "Советский", lat: 56.034290, lon: 92.905725, url: "https://krkvideo7.orionnet.online/cam13236/embed.html?autoplay=false" },
+            { address: "Взлётная 30 (1)", district: "Советский", lat: 56.034239, lon: 92.898970, url: "https://krkvideo2.orionnet.online/cam7984/embed.html?autoplay=false" },
+            { address: "Взлётная 30 (2)", district: "Советский", lat: 56.034239, lon: 92.898970, url: "https://krkvideo2.orionnet.online/cam7985/embed.html?autoplay=false" },
+            { address: "Воронова – Краснодарская", district: "Советский", lat: 56.054493, lon: 92.941688, url: "https://krkvideo7.orionnet.online/cam7131/embed.html?autoplay=false" },
+            { address: "Воронова – Рокоссовского", district: "Советский", lat: 56.060248, lon: 92.959520, url: "https://krkvideo2.orionnet.online/cam3681/embed.html?autoplay=false" },
+            { address: "Воронова – Ястынская", district: "Советский", lat: 56.064101, lon: 92.953298, url: "https://krkvideo7.orionnet.online/cam7132/embed.html?autoplay=false" },
+            { address: "Комсомольский – Ястынская", district: "Советский", lat: 56.058277, lon: 92.939997, url: "https://krkvideo7.orionnet.online/cam2158/embed.html?autoplay=false" },
+            { address: "Краснодарская – Армейская", district: "Советский", lat: 56.053917, lon: 92.941106, url: "https://fluserver.orionnet.online/cam13303/embed.html?autoplay=false" },
+            { address: "Краснодарская – Металлургов", district: "Советский", lat: 56.042762, lon: 92.941219, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
+            { address: "Краснодарская 22а", district: "Советский", lat: 56.049375, lon: 92.940283, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
+            { address: "Краснодарская 40/2", district: "Советский", lat: 56.052552, lon: 92.940265, url: "https://fluserver.orionnet.online/cam13304/embed.html?autoplay=false" },
+            { address: "Металлургов – Быковского", district: "Советский", lat: 56.060830, lon: 92.970393, url: "https://krkvideo2.orionnet.online/cam5347/embed.html?autoplay=false" },
+            { address: "Металлургов – Краснодарская (Панорама)", district: "Советский", lat: 56.044636, lon: 92.942461, url: "https://krkvideo2.orionnet.online/cam2160/embed.html?autoplay=false" },
+            { address: "Металлургов – Тельмана", district: "Советский", lat: 56.051436, lon: 92.955296, url: "https://krkvideo7.orionnet.online/cam2484/embed.html?autoplay=false" },
+            { address: "Металлургов 9а", district: "Советский", lat: 56.059514, lon: 92.969478, url: "https://krkvideo2.orionnet.online/cam5349/embed.html?autoplay=false" },
+            { address: "Молокова – 78 Д.Б. – Авиаторов", district: "Советский", lat: 56.050078, lon: 92.911492, url: "https://krkvideo7.orionnet.online/cam72/embed.html?autoplay=false" },
+            { address: "Молокова – Батурина", district: "Советский", lat: 56.040432, lon: 92.902812, url: "https://krkvideo7.orionnet.online/cam73/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Аэровокзальная (1)", district: "Советский", lat: 56.026729, lon: 92.907851, url: "https://krkvideo7.orionnet.online/cam2483/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Аэровокзальная (2)", district: "Советский", lat: 56.026729, lon: 92.907851, url: "https://krkvideo2.orionnet.online/cam7775/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Аэровокзальная (3)", district: "Советский", lat: 56.026729, lon: 92.907851, url: "https://krkvideo2.orionnet.online/cam3040/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Кристалл", district: "Советский", lat: 56.035478, lon: 92.927316, url: "https://krkvideo2.orionnet.online/cam2807/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Никитина", district: "Советский", lat: 56.030112, lon: 92.916819, url: "https://fluserver.orionnet.online/cam7773/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Ньютон, Июнь", district: "Советский", lat: 56.037186, lon: 92.932364, url: "https://krkvideo7.orionnet.online/cam7079/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Октябрьская (1)", district: "Советский", lat: 56.032831, lon: 92.921401, url: "https://krkvideo7.orionnet.online/cam2806/embed.html?autoplay=false" },
+            { address: "Партизана Железняка – Октябрьская (2)", district: "Советский", lat: 56.039836, lon: 92.935164, url: "https://krkvideo7.orionnet.online/cam6670/embed.html?autoplay=false" },
+            { address: "Партизана Железняка 2г (Медуниверситет)", district: "Советский", lat: 56.023704, lon: 92.903944, url: "https://krkvideo7.orionnet.online/cam3399/embed.html?autoplay=false" },
+            { address: "Партизана Железняка 32", district: "Советский", lat: 56.031900, lon: 92.919290, url: "https://krkvideo7.orionnet.online/cam23/embed.html?autoplay=false" },
+            { address: "Партизана Железняка 48д", district: "Советский", lat: 56.040666, lon: 92.934687, url: "https://krkvideo2.orionnet.online/cam7080/embed.html?autoplay=false" },
+            { address: "Славы – 40 лет Победы", district: "Советский", lat: 56.111695, lon: 92.928129, url: "https://krkvideo7.orionnet.online/cam7779/embed.html?autoplay=false" },
+            { address: "Славы – пр. 60 лет образования СССР", district: "Советский", lat: 56.113677, lon: 92.919204, url: "https://krkvideo7.orionnet.online/cam7780/embed.html?autoplay=false" },
+            { address: "Тельмана – Ферганская", district: "Советский", lat: 56.052511, lon: 92.973977, url: "https://krkvideo7.orionnet.online/cam4981/embed.html?autoplay=false" },
+            { address: "Устиновича – Терешковой", district: "Советский", lat: 56.054031, lon: 92.969719, url: "https://krkvideo2.orionnet.online/cam4980/embed.html?autoplay=false" },
+            { address: "Шахтёров – Молокова – Взлётная", district: "Советский", lat: 56.034935, lon: 92.892330, url: "https://krkvideo7.orionnet.online/cam129/embed.html?autoplay=false" },
+            { address: "Шахтеров 38", district: "Советский", lat: 56.038574, lon: 92.893840, url: "https://krkvideo7.orionnet.online/cam6592/embed.html?autoplay=false" },
+            { address: "Ястынская – Воронова – Космонавтов", district: "Советский", lat: 56.058887, lon: 92.942678, url: "https://krkvideo2.orionnet.online/cam1970/embed.html?autoplay=false" },
+            { address: "Ястынская 19а", district: "Советский", lat: 56.062851, lon: 92.947065, url: "https://krkvideo2.orionnet.online/cam4293/embed.html?autoplay=false" },
+            { address: "Ястынская 6 (1)", district: "Советский", lat: 56.060052, lon: 92.946050, url: "https://krkvideo7.orionnet.online/cam7136/embed.html?autoplay=false" },
+            { address: "Ястынская 6 (2)", district: "Советский", lat: 56.060052, lon: 92.946050, url: "https://krkvideo7.orionnet.online/cam7137/embed.html?autoplay=false" },
+            { address: "Мате Залки — Северный район", district: "Советский", lat: 56.066714, lon: 92.937820, url: "https://krkvideo2.orionnet.online/cam6494/embed.html?autoplay=false" },
+
+            // ===== Кировский =====
+            { address: "Тимошенкова - Монтажников", district: "Кировский", lat: 55.971876, lon: 92.949093, url: "https://krkvideo7.orionnet.online/cam6678/embed.html?autoplay=false" },
+            { address: "Кутузова - Добролюбова", district: "Кировский", lat: 55.989546, lon: 92.957783, url: "https://krkvideo7.orionnet.online/cam6497/embed.html?autoplay=false" },
+            { address: "Кутузова - Котовского", district: "Кировский", lat: 55.990307, lon: 92.961132, url: "https://krkvideo7.orionnet.online/cam6498/embed.html?autoplay=false" },
+            { address: "Мичурина 2ж (В сторону ул. Астраханская)", district: "Кировский", lat: 56.014302, lon: 92.959669, url: "https://krkvideo2.orionnet.online/cam3210/embed.html?autoplay=false" },
 
             // ===== Ленинский =====
-            { address: "26 Бакинских Комиссаров 26", lat: 56.030522, lon: 93.020772, url: "https://krkvideo2.orionnet.online/cam7983/embed.html?autoplay=false" },
-            { address: "60 лет Октября 54", lat: 55.977531, lon: 92.857090, url: "https://krkvideo7.orionnet.online/cam3785/embed.html?autoplay=false" },
-            { address: "60 лет октября 84", lat: 55.978352, lon: 92.863289, url: "https://krkvideo7.orionnet.online/cam7212/embed.html?autoplay=false" },
+            { address: "26 Бакинских Комиссаров 26", district: "Ленинский", lat: 56.030522, lon: 93.020772, url: "https://krkvideo2.orionnet.online/cam7983/embed.html?autoplay=false" },
 
             // ===== Свердловский =====
-            { address: "Вильского 34", lat: 56.021467, lon: 92.756470, url: "https://krkvideo7.orionnet.online/cam14357/embed.html?autoplay=false" },
-            { address: "Забобонова – Лесопарковая", lat: 56.018124, lon: 92.770534, url: "https://krkvideo7.orionnet.online/cam3998/embed.html?autoplay=false" },
-            { address: "Лесопарковая – Садовая", lat: 56.020310, lon: 92.756375, url: "https://krkvideo7.orionnet.online/cam6630/embed.html?autoplay=false" },
-            { address: "Лесопарковая – Сады", lat: 56.018390, lon: 92.768609, url: "https://krkvideo7.orionnet.online/cam1157/embed.html?autoplay=false" },
-            { address: "Судостроительная 161", lat: 55.985478, lon: 92.863253, url: "https://krkvideo7.orionnet.online/cam11947/embed.html?autoplay=false" },
-            { address: "Ярыгинский проезд – Карамзина", lat: 55.988178, lon: 92.853844, url: "https://fluserver.orionnet.online/cam2182/embed.html?autoplay=false" }
+            { address: "Судостроительная 161", district: "Свердловский", lat: 55.985478, lon: 92.863253, url: "https://krkvideo7.orionnet.online/cam11947/embed.html?autoplay=false" },
+            { address: "Ярыгинский проезд – Карамзина", district: "Свердловский", lat: 55.988178, lon: 92.853844, url: "https://fluserver.orionnet.online/cam2182/embed.html?autoplay=false" },
+            { address: "60 лет Октября 54", district: "Свердловский", lat: 55.977531, lon: 92.857090, url: "https://krkvideo7.orionnet.online/cam3785/embed.html?autoplay=false" },
+            { address: "60 лет октября 84", district: "Свердловский", lat: 55.978352, lon: 92.863289, url: "https://krkvideo7.orionnet.online/cam7212/embed.html?autoplay=false" }
         ];
 
-        cameras.forEach(cam => {
-            const marker = L.marker([cam.lat, cam.lon]).addTo(map);
-            const popupContent = `
+        // Управление просмотрами
+        const viewsKey = 'cam_views';
+        let views = JSON.parse(localStorage.getItem(viewsKey) || '{}');
+        function getViews(address) {
+            return views[address] || 0;
+        }
+        function incrementViews(address) {
+            views[address] = (views[address] || 0) + 1;
+            localStorage.setItem(viewsKey, JSON.stringify(views));
+            return views[address];
+        }
+
+        // Функция "Поделиться"
+        function shareCamera(address, url) {
+            if (navigator.share) {
+                navigator.share({
+                    title: `Камера: ${address}`,
+                    url: url
+                }).catch(err => console.log('Поделиться не удалось'));
+            } else {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Ссылка скопирована в буфер обмена!');
+                }).catch(() => {
+                    prompt('Скопируйте ссылку вручную:', url);
+                });
+            }
+        }
+
+        // Группа маркеров и текущий фильтр
+        let markerGroup = L.layerGroup().addTo(map);
+        let currentDistrict = '';
+
+        function buildPopupContent(cam) {
+            const viewsCount = getViews(cam.address);
+            return `
                 <div class="cam-popup">
                     <b>${cam.address}</b>
                     <div class="cam-preview">
                         <iframe src="${cam.url}" allowfullscreen></iframe>
                     </div>
-                    <a class="cam-link" href="${cam.url}" target="_blank">Смотреть камеру</a>
+                    <div class="cam-actions">
+                        <a class="cam-link" href="${cam.url}" target="_blank">Смотреть камеру</a>
+                        <button class="cam-share" onclick="event.stopPropagation(); shareCamera('${cam.address.replace(/'/g, "\\'")}', '${cam.url}')">📤 Поделиться</button>
+                    </div>
+                    <div class="cam-views">👁 ${viewsCount}</div>
                 </div>
             `;
-            marker.bindPopup(popupContent, { maxWidth: 300 });
+        }
+
+        function showFilteredCameras(district) {
+            markerGroup.clearLayers();
+            const filtered = district ? cameras.filter(c => c.district === district) : cameras;
+            filtered.forEach(cam => {
+                const marker = L.marker([cam.lat, cam.lon]).addTo(markerGroup);
+                marker.bindPopup(buildPopupContent(cam), { maxWidth: 300 });
+                marker.on('popupopen', function() {
+                    incrementViews(cam.address);
+                    const newPopupContent = buildPopupContent(cam);
+                    marker.setPopupContent(newPopupContent);
+                });
+            });
+        }
+
+        // Инициализация
+        showFilteredCameras('');
+
+        // Фильтр районов
+        document.getElementById('districtFilter').addEventListener('change', function(e) {
+            currentDistrict = e.target.value;
+            showFilteredCameras(currentDistrict);
+        });
+
+        // Поиск
+        const datalist = document.getElementById('camerasList');
+        cameras.forEach(cam => {
+            const option = document.createElement('option');
+            option.value = cam.address;
+            datalist.appendChild(option);
+        });
+
+        function findAndGo(address) {
+            const cam = cameras.find(c => c.address === address);
+            if (cam) {
+                if (currentDistrict && cam.district !== currentDistrict) {
+                    document.getElementById('districtFilter').value = '';
+                    showFilteredCameras('');
+                    currentDistrict = '';
+                }
+                markerGroup.eachLayer(layer => {
+                    if (layer.getLatLng().lat === cam.lat && layer.getLatLng().lng === cam.lon) {
+                        map.setView(layer.getLatLng(), 16);
+                        layer.openPopup();
+                    }
+                });
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('change', function() {
+            const val = this.value.trim();
+            if (val) findAndGo(val);
+        });
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const val = document.getElementById('searchInput').value.trim();
+            if (val) findAndGo(val);
+        });
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const val = this.value.trim();
+                if (val) findAndGo(val);
+            }
         });
     </script>
 </body>
